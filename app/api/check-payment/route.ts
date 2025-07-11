@@ -1,18 +1,15 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
-import { db } from '@/lib/db'; // ✅ Adjust this path to your DB connection
+import { NextResponse } from 'next/server';
+import { db } from '@/lib/db'; // ✅ Adjust this if needed
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  const { hallTicket } = req.body;
-
-  if (!hallTicket) {
-    return res.status(400).json({ error: 'Missing hallTicket' });
-  }
-
+export async function POST(req: Request) {
   try {
+    const body = await req.json();
+    const { hallTicket } = body;
+
+    if (!hallTicket) {
+      return NextResponse.json({ error: 'Missing hallTicket' }, { status: 400 });
+    }
+
     // Step 1: Get student details with branch name
     const [studentRows]: any = await db.query(
       `SELECT s.id AS student_id, s.name AS studentName, s.section,
@@ -24,7 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     );
 
     if (!studentRows.length) {
-      return res.status(404).json({ error: 'Student not found' });
+      return NextResponse.json({ error: 'Student not found' }, { status: 404 });
     }
 
     const student = studentRows[0];
@@ -35,10 +32,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       [student.student_id]
     );
 
-    // Convert paid fee types to a set for easy lookup
     const paidFees = new Set(paymentRows.map((row: any) => row.payment_type));
 
-    // Define all expected fee types (you can update this list)
     const feeTypes = ["College Fee", "Bus Fee", "Hostel Fee", "Others"];
 
     const fees = feeTypes.map((type) => ({
@@ -47,8 +42,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       paid: paidFees.has(type),
     }));
 
-    // Final Response
-    return res.status(200).json({
+    return NextResponse.json({
       studentName: student.studentName,
       branch: student.branchName,
       section: student.section,
@@ -57,7 +51,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   } catch (error) {
     console.error("Error fetching student details:", error);
-    return res.status(500).json({ error: "Internal Server Error" });
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
