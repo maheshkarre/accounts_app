@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { Search as SearchIcon } from "lucide-react";
 
 export default function SearchPaymentsPage() {
   const router = useRouter();
@@ -13,6 +15,7 @@ export default function SearchPaymentsPage() {
   const [branch, setBranch] = useState("");
   const [section, setSection] = useState("");
   const [feeStatus, setFeeStatus] = useState("");
+  const [searching, setSearching] = useState(false);
 
   useEffect(() => {
     const user = localStorage.getItem("user");
@@ -32,6 +35,8 @@ export default function SearchPaymentsPage() {
       return;
     }
 
+    setSearching(true);
+
     try {
       const res = await fetch("/api/student-fee-status", {
         method: "POST",
@@ -39,35 +44,45 @@ export default function SearchPaymentsPage() {
         body: JSON.stringify({ hallTicket, feeType: selectedFeeType }),
       });
 
-      let data;
-      try {
-        data = await res.json();
-      } catch (err) {
-        console.error("Failed to parse JSON:", err);
-        alert("Unexpected server response. Please try again later.");
-        return;
-      }
+      const data = await res.json();
 
-      if (res.ok) {
-        setStudentName(data.studentName || "");
-        setBranch(data.branch || "");
-        setSection(data.section || "");
-        setFeeStatus(data.feeStatus || "");
-      } else {
-        alert(data.error || "Student not found");
-        setStudentName("");
-        setBranch("");
-        setSection("");
-        setFeeStatus("");
-      }
+      setTimeout(() => {
+        if (res.ok) {
+          setStudentName(data.studentName || "");
+          setBranch(data.branch || "");
+          setSection(data.section || "");
+          setFeeStatus(data.feeStatus || "");
+        } else {
+          alert(data.error || "Student not found");
+          setStudentName("");
+          setBranch("");
+          setSection("");
+          setFeeStatus("");
+        }
+        setSearching(false);
+      }, 2000);
     } catch (err) {
       console.error("Fetch error:", err);
       alert("An error occurred while contacting the server.");
+      setSearching(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-gray-900 to-black text-white">
+    <div className="relative flex min-h-screen bg-gradient-to-br from-gray-900 to-black text-white">
+      {/* Spinner Overlay */}
+      {searching && (
+        <div className="absolute inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center">
+          <motion.div
+            initial={{ rotate: 0 }}
+            animate={{ rotate: 360 }}
+            transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+          >
+            <SearchIcon className="h-14 w-14 text-blue-400" />
+          </motion.div>
+        </div>
+      )}
+
       {/* Sidebar */}
       <div className="w-64 bg-gray-800 p-6 hidden md:flex flex-col justify-between border-r border-gray-700">
         <div>
