@@ -225,6 +225,43 @@ export default function DashboardPage() {
   );
 }
 
+
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!studentId || !amount || !paymentType || !branch || !section) {
+    setMessage("❗ Please fill all required fields");
+    return;
+  }
+
+  setIsSubmitting(true); // start loading
+  try {
+    const res = await fetch("/api/add-payment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        studentId,
+        amount,
+        paymentType,
+        remarks,
+      }),
+    });
+
+    const result = await res.json();
+    if (result.success) {
+      setMessage("✅ Payment submitted successfully");
+      setHallTicket(""); setAmount(""); setPaymentType("");
+      setBranch(""); setSection(""); setRemarks(""); setStudentId(null);
+      setStudentValidated(false); setStudentName("");
+    } else {
+      setMessage("❌ Failed to submit payment");
+    }
+  } catch (err) {
+    setMessage("❌ Server error while submitting");
+  }
+  setIsSubmitting(false); // stop loading
+};
+
+
 function MakePaymentInline({ onClose }: { onClose: () => void }) {
   const [hallTicket, setHallTicket] = useState("");
   const [amount, setAmount] = useState("");
@@ -232,29 +269,70 @@ function MakePaymentInline({ onClose }: { onClose: () => void }) {
   const [branch, setBranch] = useState("");
   const [section, setSection] = useState("");
   const [remarks, setRemarks] = useState("");
+  const [studentName, setStudentName] = useState("");
   const [message, setMessage] = useState("");
+  const [studentId, setStudentId] = useState<number | null>(null);
+  const [studentValidated, setStudentValidated] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const sectionOptions = ["A", "B", "C"];
+
+  const fetchStudentDetails = async () => {
+    if (!hallTicket) return;
+    try {
+      const res = await fetch("/api/get-student-by-hallticket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hallTicket }),
+      });
+      const result = await res.json();
+      if (result.success && result.student) {
+        setStudentId(result.student.id);
+        setStudentName(result.student.name);
+        setBranch(result.student.branch);
+        setSection(result.student.section);
+        setStudentValidated(true);
+        setMessage("");
+      } else {
+        setMessage("❗ Student not found");
+        setStudentId(null);
+        setStudentValidated(false);
+        setBranch(""); setSection(""); setStudentName("");
+      }
+    } catch (err) {
+      setMessage("❗ Error fetching student");
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!hallTicket || !amount || !paymentType || !branch || !section) {
+    if (!studentId || !amount || !paymentType || !branch || !section) {
       setMessage("❗ Please fill all required fields");
       return;
     }
-    console.log({
-      hallTicket,
-      amount,
-      paymentType,
-      branch,
-      section,
-      remarks
-    });
-    setMessage("✅ Payment submitted successfully");
-    setHallTicket("");
-    setAmount("");
-    setPaymentType("");
-    setBranch("");
-    setSection("");
-    setRemarks("");
+
+    try {
+      const res = await fetch("/api/add-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId,
+          amount,
+          paymentType,
+          remarks,
+        }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        setMessage("✅ Payment submitted successfully");
+        setHallTicket(""); setAmount(""); setPaymentType("");
+        setBranch(""); setSection(""); setRemarks(""); setStudentId(null);
+        setStudentValidated(false); setStudentName("");
+      } else {
+        setMessage("❌ Failed to submit payment");
+      }
+    } catch (err) {
+      setMessage("❌ Server error while submitting");
+    }
   };
 
   return (
@@ -263,41 +341,94 @@ function MakePaymentInline({ onClose }: { onClose: () => void }) {
         <h2 className="font-bold text-blue-400 text-lg">Make Payment</h2>
         <button onClick={onClose} className="text-sm text-blue-400 hover:underline">Close</button>
       </div>
+
       {message && (
         <p className={`text-center text-sm ${message.startsWith("✅") ? "text-green-400" : "text-red-400"}`}>
           {message}
         </p>
       )}
+
       <form onSubmit={handleSubmit} className="space-y-6">
-        <input type="text" value={hallTicket} onChange={e => setHallTicket(e.target.value)} className="border p-2 w-full rounded bg-slate-700 border-slate-600 placeholder:text-slate-400 text-sm" placeholder="Hall Ticket *" />
-        <input type="number" value={amount} onChange={e => setAmount(e.target.value)} className="border p-2 w-full rounded bg-slate-700 border-slate-600 placeholder:text-slate-400 text-sm" placeholder="Amount *" />
-        <select value={paymentType} onChange={e => setPaymentType(e.target.value)} className="border p-2 w-full rounded bg-slate-700 border-slate-600 text-white text-sm">
-          <option value="">Select Payment Type *</option>
-          <option>College Fee</option>
-          <option>Bus Fee</option>
-          <option>Hostel Fee</option>
-          <option>Others</option>
-        </select>
-        <select value={branch} onChange={e => setBranch(e.target.value)} className="border p-2 w-full rounded bg-slate-700 border-slate-600 text-white text-sm">
-          <option value="">Select Branch *</option>
-          <option>CSE</option>
-          <option>ECE</option>
-          <option>MECH</option>
-          <option>CIVIL</option>
-          <option>AI & ML</option>
-        </select>
-        <select value={section} onChange={e => setSection(e.target.value)} className="border p-2 w-full rounded bg-slate-700 border-slate-600 text-white text-sm">
-          <option value="">Select Section *</option>
-          <option>A</option>
-          <option>B</option>
-          <option>C</option>
-        </select>
-        <textarea value={remarks} onChange={e => setRemarks(e.target.value)} className="border p-2 w-full rounded bg-slate-700 border-slate-600 placeholder:text-slate-400 text-sm" placeholder="Remarks (optional)" rows={2}></textarea>
-        <button type="submit" className="bg-blue-600 text-white p-2 rounded w-full hover:bg-blue-700">Submit Payment</button>
+        {/* Hall Ticket Input */}
+        <input
+          type="text"
+          value={hallTicket}
+          onChange={e => setHallTicket(e.target.value)}
+          onBlur={fetchStudentDetails}
+          className="border p-2 w-full rounded bg-slate-700 border-slate-600 placeholder:text-slate-400 text-sm"
+          placeholder="Enter Hall Ticket *"
+        />
+
+        {studentValidated && (
+          <>
+            {/* Name (read-only, bold) */}
+            <input
+              type="text"
+              value={studentName}
+              readOnly
+              className="border p-2 w-full rounded bg-slate-600 text-slate-100 text-sm font-bold"
+              placeholder="Student Name"
+            />
+
+            {/* Branch (read-only, bold) */}
+            <input
+              type="text"
+              value={branch}
+              readOnly
+              className="border p-2 w-full rounded bg-slate-600 text-slate-100 text-sm font-bold"
+              placeholder="Branch"
+            />
+
+            <input
+              type="number"
+              value={amount}
+              onChange={e => setAmount(e.target.value)}
+              className="border p-2 w-full rounded bg-slate-700 border-slate-600 placeholder:text-slate-400 text-sm"
+              placeholder="Amount *"
+            />
+
+            <select
+              value={paymentType}
+              onChange={e => setPaymentType(e.target.value)}
+              className="border p-2 w-full rounded bg-slate-700 border-slate-600 text-white text-sm"
+            >
+              <option value="">Select Payment Type *</option>
+              <option>College Fee</option>
+              <option>Bus Fee</option>
+              <option>Hostel Fee</option>
+              <option>Others</option>
+            </select>
+
+            {/* Section Dropdown */}
+            <select
+              value={section}
+              onChange={e => setSection(e.target.value)}
+              className="border p-2 w-full rounded bg-slate-700 border-slate-600 text-white text-sm"
+            >
+              <option value="">Select Section *</option>
+              {sectionOptions.map(s => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+
+            <textarea
+              value={remarks}
+              onChange={e => setRemarks(e.target.value)}
+              className="border p-2 w-full rounded bg-slate-700 border-slate-600 placeholder:text-slate-400 text-sm"
+              placeholder="Remarks (optional)"
+              rows={2}
+            />
+
+            <button type="submit" className="bg-blue-600 text-white p-2 rounded w-full hover:bg-blue-700">
+              Submit Payment
+            </button>
+          </>
+        )}
       </form>
     </div>
   );
 }
+
 
 
 function AddExpensesInline({ onClose }: { onClose: () => void }) {
